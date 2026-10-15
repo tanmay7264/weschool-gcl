@@ -1,172 +1,189 @@
 import { PROJECTS } from './projects.js';
-import { STAGES, ROLE } from './data.js';
 
-// Google Apps Script Web App URL (see ../apps-script/Code.gs). Empty = form shows "not connected".
+// Google Apps Script Web App URL (see ../apps-script/Code.gs). Empty = form shows "not configured".
 const SCRIPT_URL = '';
 
-const $ = (s, el = document) => el.querySelector(s);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const P = Object.fromEntries(PROJECTS.map(p => [p.id, p]));
-const S = Object.fromEntries(STAGES.map((s, i) => [s.id, { ...s, i }]));
-const PCOLOR = { deloitte: '#4F86C6', idfc: '#7B63A6', govardhan: '#B98A55', aurapay: '#7B63A6', kaleidosync: '#B98A55' };
-const ms = name => `<span class="ms">${name}</span>`;
+const $ = (s, el = document) => el.querySelector(s);
+const byId = Object.fromEntries(PROJECTS.map(p => [p.id, p]));
 
-let map = null;          // 3D scene API (null without WebGL)
-let current = null;      // selected id: stage id, project id or "truck:<project>"
-let tab = 'projects';
+/* ---------- Journey stages ---------- */
+const STAGES = [
+  { short: 'Challenge', title: 'Your Challenge', icon: 'flag',
+    text: 'At the end of Trimester I, you share a challenge statement on an industry, social, sustainability or business theme. We allocate it to a diverse student team (by gender, education and work-ex) and assign a faculty mentor.',
+    you: 'Share a challenge statement through the form below.',
+    eg: 'deloitte', egText: 'Deloitte asked how AI-enabled personal data collection affects privacy.' },
+  { short: 'Stakeholders', title: 'Stakeholder Mapping', icon: 'hub',
+    text: 'Teams identify everyone the challenge touches (customers, regulators, partners, communities) and how they influence the outcome.',
+    you: 'Fine-tune the challenge statement with the faculty mentor.',
+    eg: 'kaleidosync', egText: 'Mapped the whole silk value chain, from silkworm and mulberry farmers to traders, weavers and fashion designers.' },
+  { short: 'Journey', title: 'Customer Journey', icon: 'route',
+    text: 'Teams walk in the user\'s shoes through awareness, consideration, decision and delivery, to find where the experience breaks down.',
+    you: null,
+    eg: 'deloitte', egText: 'Journeys of a tech employee and a privacy-concerned citizen showed people want control but lack visibility.' },
+  { short: 'Insights', title: 'Observations & Insights', icon: 'insights',
+    text: 'Primary surveys, interviews and secondary research narrow the problem to three opportunity spaces.',
+    you: 'Review the 3 opportunity spaces and give feedback (Phase I).',
+    eg: 'idfc', egText: '77% of respondents were comfortable with ESG features in retail banking, and 66% wanted to see the impact of their transactions.' },
+  { short: 'Prototype', title: 'Prototyping', icon: 'devices',
+    text: 'In Trimester III the chosen opportunity space becomes a working prototype built with relevant new-age technology (AI, apps, chatbots, low-code) and sustainability in mind.',
+    you: 'Give feedback on the prototype.',
+    eg: 'govardhan', egText: 'A low-code volunteer portal with registration, status tracking and a live dashboard.' },
+  { short: 'Solution', title: 'Commercially Feasible Solution', icon: 'rocket_launch',
+    text: 'The team presents a solution with a business plan (revenue model, go-to-market, cash needs and ROI) that your organisation can act on.',
+    you: 'Attend the final solution presentation.',
+    eg: 'aurapay', egText: 'Age-segmented banking app with AI fraud alerts, voice banking and a senior-friendly UI.' },
+];
 
-/* ---------- Selection ---------- */
-function select(id, { fly = true } = {}) {
-  if (id && !S[id] && !P[id] && !(id.startsWith('truck:') && P[id.slice(6)])) id = null;
-  current = id;
-  map?.select(id, { fly });
-  renderInspector(); renderTracker(); renderRows();
-  history.replaceState(null, '', id ? '#' + id.replace('truck:', '') : location.pathname);
-}
+const dots = $('.dots'), stagesEl = $('.stages');
+STAGES.forEach((s, i) => {
+  const li = document.createElement('li');
+  li.innerHTML = `<i>${i === 0 ? '★' : i}</i><span>${s.short}</span>`;
+  li.addEventListener('click', () => scrollToStage(i));
+  dots.append(li);
 
-/* ---------- Inspector ---------- */
-const insp = $('#inspector');
-const head = (tile, color, kicker, title, sub) => `
-  <div class="ihead">
-    <span class="tile lg" style="background:${color}">${tile}</span>
-    <div><small class="kicker">${kicker}</small><h2>${title}</h2><small>${sub}</small></div>
-    <button class="icon" data-action="close" aria-label="Close panel">${ms('close')}</button>
-  </div>`;
-const rows = list => `<dl class="rows">${list.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
-const projCard = p => `<button class="pcard" data-select="${p.id}"><span class="tile" style="background:${PCOLOR[p.id]}">${p.org[0]}</span><span><b>${p.org}</b><small>${p.title}</small></span>${ms('chevron_right')}</button>`;
-
-function renderInspector() {
-  insp.classList.remove('enter'); void insp.offsetWidth; insp.classList.add('enter');
-  if (!current) {
-    insp.innerHTML = `
-      ${head(ms('travel_explore'), '#66518A', 'WELCOME · GCL 2026-27', 'Explore the GCL Campus', 'Global Citizen Leaders Program')}
-      <p class="lead">Share a <b>real challenge</b> from your organisation. Over <b>two trimesters</b>, our Post Graduate management teams turn it into a <b>researched, prototyped, commercially feasible solution</b>, mentored by WeSchool faculty and by you.</p>
-      <p class="muted">Modelled on "Leadership Beyond Boundaries" by the Center for Creative Leadership (CCL) and Design Impact (DI).</p>
-      <ul class="howto">
-        <li>${ms('ads_click')}<span>Click any building or truck to inspect it</span></li>
-        <li>${ms('pan_tool')}<span>Drag to pan · scroll to zoom · right-drag to rotate</span></li>
-        <li>${ms('star')}<span>Orange stops are where <b>you</b> get involved</span></li>
-      </ul>
-      <div class="actions"><button class="btn primary" data-select="challenge">${ms('play_arrow')}Start the tour</button><button class="btn soft" data-action="form">Submit a Challenge</button></div>`;
-    return;
-  }
-  const truck = current.startsWith('truck:');
-  const p = P[truck ? current.slice(6) : current];
-  if (p) {
-    insp.innerHTML = `
-      ${head(p.org[0], PCOLOR[p.id], 'PARTNER PROJECT · ' + p.domain.toUpperCase(), p.title, p.org)}
-      <div class="status">${truck ? '<span class="chip blue">On the road</span><span class="muted">Travelling the GCL journey</span>' : '<span class="chip green">Completed</span><span class="muted">Past GCL cohort</span>'}</div>
-      <button class="thumb" data-poster="${p.id}"><img src="${p.image}" alt="${p.org} project poster"><span>${ms('open_in_full')} View poster</span></button>
-      ${rows([['Challenge', p.challenge], ['Stakeholders', p.stakeholders], ['Insight', p.insight], ['Prototype', p.prototype], ['Solution', p.outcome]])}
-      <p class="team">${ms('groups')}<span>${p.team}${p.mentor ? '<br>' + p.mentor : ''}</span></p>
-      <div class="actions"><button class="btn primary" data-poster="${p.id}">${ms('image')}View poster</button><button class="btn soft" data-action="form">Bring us a challenge like this</button></div>`;
-    insp.querySelector('.rows').classList.add('stack');
-    return;
-  }
-  const s = S[current], last = s.i === STAGES.length - 1, eg = P[s.eg];
-  const evidence = s.bars
-    ? `<div class="egt"><b>Seen in a past project</b><small>% of respondents</small></div>` + s.bars.map(([l, v, c]) => `<div class="bar"><span>${l}</span><b>${v}%</b><i style="--w:${v}%;--c:${c}"></i></div>`).join('')
-    : `<div class="egt"><b>Seen in past projects</b></div><ul class="evidence">${s.evidence.map(([k, v]) => `<li><b>${k}</b>${v}</li>`).join('')}</ul>`;
-  insp.innerHTML = `
-    ${head(s.num, s.i === 0 ? '#F0973A' : '#7AA342', (s.i ? 'STAGE ' + s.i : 'START') + ' · ' + s.term.toUpperCase(), s.title, s.building)}
-    <div class="status">${s.role ? '<span class="chip orange">★ Your touchpoint</span>' : '<span class="chip">Student-led</span>'}<span class="muted">Step ${s.i + 1} of ${STAGES.length}</span></div>
-    <div class="progress"><i style="--w:${(s.i / (STAGES.length - 1)) * 100}%"></i></div>
-    ${rows(s.rows)}
-    ${s.role ? `<div class="role">${ms('star')}<div><small>YOUR ROLE</small><b>${s.role}</b></div></div>` : ''}
-    ${evidence}
-    ${projCard(eg)}
-    <div class="actions">
-      <button class="btn primary" data-select="${eg.id}">View ${eg.org.split(' ')[0]} project</button>
-      ${last ? `<button class="btn soft" data-action="form">Submit a Challenge</button>` : `<button class="btn soft" data-select="${STAGES[s.i + 1].id}">Next stage ${ms('arrow_forward')}</button>`}
+  const p = byId[s.eg];
+  const card = document.createElement('article');
+  card.className = 'stagecard';
+  card.innerHTML = `
+    <div class="glass">
+      <div class="num">${i === 0 ? 'Start' : 'Stage ' + i} · <span class="ms" style="vertical-align:-5px">${s.icon}</span></div>
+      <h3>${s.title}</h3>
+      <p>${s.text}</p>
+      ${s.you ? `<div class="you"><span class="ms">star</span><span><b>Your role:</b> ${s.you}</span></div>` : ''}
+    </div>
+    <div class="glass eg">
+      <h4>Seen in a past project</h4>
+      <strong>${p.org}: ${p.title}</strong>
+      <p>${s.egText}</p>
+      <button class="btn ghost sm" data-open="${p.id}">View project</button>
     </div>`;
+  stagesEl.append(card);
+});
+
+const journey = $('#journey');
+function journeyProgress() {
+  const range = journey.offsetHeight - innerHeight;
+  return Math.min(1, Math.max(0, (scrollY - journey.offsetTop) / range));
+}
+function scrollToStage(i) {
+  const range = journey.offsetHeight - innerHeight;
+  scrollTo({ top: journey.offsetTop + range * (i + 0.5) / STAGES.length, behavior: reduceMotion ? 'auto' : 'smooth' });
+}
+let activeStage = -1;
+function updateStages() {
+  const idx = Math.min(STAGES.length - 1, Math.floor(journeyProgress() * STAGES.length));
+  if (idx === activeStage) return;
+  activeStage = idx;
+  [...stagesEl.children].forEach((c, i) => c.classList.toggle('on', i === idx));
+  [...dots.children].forEach((d, i) => d.classList.toggle('on', i <= idx));
+  dots.style.setProperty('--p', idx / (STAGES.length - 1));
+}
+addEventListener('scroll', updateStages, { passive: true });
+updateStages();
+
+/* ---------- Projects carousel (CSS 3D) ---------- */
+const stage3d = $('.stage3d'), ring = $('.ring');
+const STEP = 360 / PROJECTS.length;
+PROJECTS.forEach((p, i) => {
+  const b = document.createElement('button');
+  b.className = 'pcard';
+  b.style.setProperty('--i', i);
+  b.dataset.i = i;
+  b.innerHTML = `<img src="${p.image}" alt="" loading="lazy"><div><small>${p.org} · ${p.domain}</small><h3>${p.title}</h3><p>${p.challenge}</p></div>`;
+  ring.append(b);
+});
+
+let rot = 0;
+const setRot = r => { rot = r; ring.style.setProperty('--rot', rot + 'deg'); };
+const frontIndex = () => ((Math.round(-rot / STEP) % PROJECTS.length) + PROJECTS.length) % PROJECTS.length;
+document.querySelectorAll('.ringnav button').forEach(b =>
+  b.addEventListener('click', () => setRot(Math.round(rot / STEP) * STEP - b.dataset.dir * STEP)));
+
+let drag = null, moved = false;
+stage3d.addEventListener('pointerdown', e => {
+  if (innerWidth <= 900) return;
+  drag = { x: e.clientX, rot }; moved = false;
+  stage3d.setPointerCapture(e.pointerId);
+});
+stage3d.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x;
+  if (Math.abs(dx) > 5) { moved = true; stage3d.classList.add('drag'); }
+  if (moved) setRot(drag.rot + dx * 0.25);
+});
+stage3d.addEventListener('pointerup', e => {
+  if (!drag) return;
+  stage3d.releasePointerCapture(e.pointerId);
+  stage3d.classList.remove('drag');
+  drag = null;
+  if (moved) { setRot(Math.round(rot / STEP) * STEP); return; }
+  // Plain click: pointer capture retargets the click, so hit-test the real element.
+  const card = document.elementFromPoint(e.clientX, e.clientY)?.closest('.pcard');
+  if (card) cardClick(+card.dataset.i);
+});
+ring.addEventListener('click', e => {
+  // Keyboard (Enter/Space) and mobile taps; pointer clicks are handled above.
+  const card = e.target.closest('.pcard');
+  if (card && (e.detail === 0 || innerWidth <= 900)) openProject(PROJECTS[card.dataset.i].id);
+});
+function cardClick(i) {
+  if (i === frontIndex()) return openProject(PROJECTS[i].id);
+  let delta = ((i - frontIndex()) % PROJECTS.length + PROJECTS.length) % PROJECTS.length;
+  if (delta > PROJECTS.length / 2) delta -= PROJECTS.length;
+  setRot(Math.round(rot / STEP) * STEP - delta * STEP);
 }
 
-/* ---------- Tracker ---------- */
-function renderTracker() {
-  const si = S[current]?.i ?? (current ? STAGES.length : -1); // project selected = journey complete
-  $('#steps').innerHTML = STAGES.map((s, i) => {
-    const st = i < si ? 'done' : i === si ? 'active' : 'todo';
-    return `<li class="${st}"><button data-select="${s.id}" aria-current="${st === 'active' ? 'step' : 'false'}">
-      <span class="dot">${st === 'done' ? ms('check') : s.num}</span><b>${s.short}</b>
-      <small>${st === 'active' ? 'You are here' : s.term.split(' · ')[0].replace('Trimester', 'Trim')}</small></button></li>`;
-  }).join('');
-  const p = P[current?.replace('truck:', '')] || P[S[current]?.eg] || P.idfc;
-  $('#trackSub').textContent = `#GCL-${p.id.toUpperCase()} · ${p.title}`;
-  $('#current').dataset.select = p.id;
-  $('#current').innerHTML = `<span class="tile lg" style="background:${PCOLOR[p.id]}">${p.org.slice(0, 3).toUpperCase()}</span>
-    <span><b>#GCL-${p.id.toUpperCase()}</b><small>${p.org}</small><span class="chip green">${current && S[current] ? 'Example for this stage' : 'Completed project'}</span></span>${ms('chevron_right')}`;
+/* ---------- Project modal ---------- */
+const modal = $('#modal');
+function openProject(id) {
+  const p = byId[id];
+  const rows = [['Challenge', p.challenge], ['Stakeholders', p.stakeholders], ['Insights', p.insight], ['Prototype', p.prototype], ['Solution', p.outcome]];
+  $('.mbody', modal).innerHTML = `
+    <div class="poster"><img src="${p.image}" alt="${p.org} project poster"></div>
+    <div class="info">
+      <small>${p.org} · ${p.domain}</small>
+      <h3>${p.title}</h3>
+      <dl>${rows.map(([k, v], i) => `<div><dt><b>${i + 1}</b>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+      <p class="team">${p.team}${p.mentor ? '<br>' + p.mentor : ''}</p>
+    </div>`;
+  modal.showModal();
 }
-
-/* ---------- List tabs + search ---------- */
-const rowStage = s => `<li><button data-select="${s.id}" class="${current === s.id ? 'on' : ''}"><span class="tile" style="background:${s.id === 'challenge' ? '#F0973A' : '#7AA342'}">${s.num}</span><span><b>${s.title}</b><small>${s.building} · ${s.term}</small></span><span class="chip">${s.role ? '★ You' : 'Students'}</span></button></li>`;
-const rowProject = p => `<li><button data-select="${p.id}" class="${current === p.id ? 'on' : ''}"><span class="tile" style="background:${PCOLOR[p.id]}">${p.org[0]}</span><span><b>${p.org}</b><small>${p.title}</small></span><span class="chip">${p.domain.split(' · ')[0]}</span></button></li>`;
-const rowRole = s => `<li><button data-select="${s.id}" class="${current === s.id ? 'on' : ''}"><span class="tile" style="background:#F0973A">${ms('star')}</span><span><b>${s.role}</b><small>${s.title} · ${s.term}</small></span></button></li>`;
-function renderRows() {
-  const q = $('#search').value.trim().toLowerCase();
-  document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', !q && b.dataset.tab === tab));
-  let html;
-  if (q) {
-    const hit = o => JSON.stringify(o).toLowerCase().includes(q);
-    html = STAGES.filter(hit).map(rowStage).join('') + PROJECTS.filter(hit).map(rowProject).join('') || `<li class="empty">No matches for “${q}”</li>`;
-  } else html = (tab === 'stages' ? STAGES.map(rowStage) : tab === 'role' ? ROLE.map(rowRole) : PROJECTS.map(rowProject)).join('');
-  $('#rows').innerHTML = html;
-}
-document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; $('#search').value = ''; renderRows(); }));
-$('#search').addEventListener('input', renderRows);
-$('#search').addEventListener('keydown', e => { if (e.key === 'Enter') $('#rows button')?.click(); });
-
-/* ---------- Global clicks & keys ---------- */
-const formDrawer = $('#formDrawer'), posterModal = $('#posterModal');
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-select],[data-action],[data-poster],[data-close]');
-  if (!t) return;
-  if (t.dataset.select) return select(t.dataset.select);
-  if (t.dataset.poster) { const p = P[t.dataset.poster]; $('img', posterModal).src = p.image; $('img', posterModal).alt = p.org + ' project poster'; return posterModal.showModal(); }
-  if (t.hasAttribute('data-close')) return t.closest('dialog').close();
-  ({
-    form: () => formDrawer.showModal(),
-    close: () => select(null),
-    zoomin: () => map?.zoom(1.35), zoomout: () => map?.zoom(1 / 1.35),
-    spin: () => map?.spin(90), home: () => { map?.home(); },
-  })[t.dataset.action]?.();
+  const t = e.target.closest('[data-open]');
+  if (t) openProject(t.dataset.open);
 });
-for (const d of [formDrawer, posterModal]) d.addEventListener('click', e => { if (e.target === d) d.close(); });
-addEventListener('keydown', e => {
-  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); $('#search').focus(); }
-  if (e.key === 'Escape' && !document.querySelector('dialog[open]') && current) select(null);
-});
+$('.close', modal).addEventListener('click', () => modal.close());
+modal.addEventListener('click', e => { if (e.target === modal) modal.close(); });
 
 /* ---------- Partner form ---------- */
 const form = $('#form'), status = $('.status', form);
 form.addEventListener('submit', async e => {
   e.preventDefault();
-  form.classList.add('touched'); status.className = 'status';
+  form.classList.add('touched');
+  status.className = 'status';
   if (!form.checkValidity()) { form.reportValidity(); return; }
   if (form.website.value) return; // honeypot filled = bot
-  if (!SCRIPT_URL) { status.className = 'status err'; status.textContent = 'Submissions are not connected yet. Please email the GCL team in the meantime.'; return; }
+  if (!SCRIPT_URL) {
+    status.className = 'status err';
+    status.textContent = 'Submissions are not connected yet. Please email the GCL team in the meantime.';
+    return;
+  }
   const btn = $('button[type=submit]', form);
   btn.disabled = true; status.textContent = 'Sending…';
   try {
-    // no-cors: Apps Script sends no CORS headers; the response is opaque but the row is written.
+    // no-cors: Apps Script doesn't send CORS headers; the response is opaque but the row is written.
     await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: new URLSearchParams(new FormData(form)) });
-    status.className = 'status ok'; status.textContent = 'Thank you! Your challenge has been submitted. The GCL team will be in touch.';
+    status.className = 'status ok';
+    status.textContent = 'Thank you! Your challenge has been submitted. The GCL team will be in touch.';
     form.reset(); form.classList.remove('touched');
   } catch {
-    status.className = 'status err'; status.textContent = 'Could not send. Please check your connection and try again.';
+    status.className = 'status err';
+    status.textContent = 'Could not send. Please check your connection and try again.';
   } finally { btn.disabled = false; }
 });
 
-/* ---------- Boot ---------- */
-addEventListener('hashchange', () => select(location.hash.slice(1) || null));
-const initial = location.hash.slice(1) || null;
-select(initial, { fly: false });
-
-import('./scene.js').then(({ createScene }) => {
-  map = createScene($('#scene'), $('#labels'), { onSelect: id => select(id), reduceMotion });
-  STAGES.forEach(s => map.addLabel(s.id, `<i class="${s.id === 'challenge' ? 'orange' : ''}">${s.num}</i>${s.building}`, 'stage'));
-  PROJECTS.forEach(p => map.addLabel(p.id, p.org, 'project'));
-  if (current) map.select(current);
-}).catch(err => {
-  console.warn('3D campus disabled:', err);
-  document.body.classList.add('no-webgl'); $('.nogl').hidden = false;
-});
+/* ---------- 3D background (loaded separately so the page works without WebGL/CDN) ---------- */
+import('./scene.js')
+  .then(m => m.start({ journeyProgress, journey, reduceMotion, stageCount: STAGES.length }))
+  .catch(err => { console.warn('3D scene disabled:', err); document.documentElement.classList.add('no-webgl'); });

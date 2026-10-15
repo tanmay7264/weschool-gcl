@@ -3,106 +3,147 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GCL Campus · Partner with WeSchool</title>
-<meta name="description" content="Explore the WeSchool Global Citizen Leaders (GCL) program as a 3D campus: see how your challenge becomes a commercially feasible solution, browse past partner projects, and submit a challenge.">
+<title>GCL 2026-27 · Partner with WeSchool</title>
+<meta name="description" content="Global Citizen Leaders (GCL) at WeSchool: share a real challenge and our PG management teams turn it into a commercially feasible solution.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL@20..24,500,0..1&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@24,500,0&display=block" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<script type="importmap">{ "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
-} }</script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }</script>
 </head>
 <body>
-<div class="map" aria-label="3D GCL campus map. Click a building to inspect it.">
-  <canvas id="scene"></canvas>
-  <div id="labels" class="labels"></div>
-  <p class="nogl" hidden>The 3D campus needs WebGL. Use the lists and tracker to explore.</p>
-</div>
+<canvas id="scene" aria-hidden="true"></canvas>
 
-<header class="topbar">
-  <a class="brand" href="./" aria-label="GCL Campus home">
-    <img src="../assets/weschool-logo.png" alt="WeSchool, Welingkar Education">
-    <span><b>GCL Campus</b><small>Global Citizen Leaders</small></span>
-  </a>
-  <label class="search">
-    <span class="ms">search</span>
-    <input id="search" type="search" placeholder="Search stages, projects, partners…" autocomplete="off" aria-label="Search stages and projects">
-    <kbd>/</kbd>
-  </label>
-  <div class="grow"></div>
-  <div class="program"><span class="tile">GCL</span><span><b>GCL 2026-27</b><small>Trimester II · Module I</small></span></div>
-  <span class="live"><i></i>Accepting challenges</span>
-  <button class="btn primary" data-action="form"><span class="ms">add</span><span class="long">Submit a Challenge</span><span class="short">Submit</span></button>
-</header>
-
-<section class="kpis" aria-label="Program at a glance">
-  <div class="card kpi"><span class="tile purple">5</span><div><small>Partner projects</small><b>5 <em>Deloitte · IDFC · +3</em></b><small>past GCL cohorts</small></div></div>
-  <div class="card kpi"><span class="tile orange"><span class="ms">star</span></span><div><small>Industry touchpoints</small><b>4 <em>online or in person</em></b><small>after you share a challenge</small></div></div>
-  <div class="card kpi"><span class="tile green"><span class="ms">conversion_path</span></span><div><small>Journey stages</small><b>5 <em>challenge → solution</em></b><small>design-thinking flow</small></div></div>
-</section>
-
-<div class="card controls" role="toolbar" aria-label="Map controls">
-  <button data-action="zoomin" aria-label="Zoom in"><span class="ms">add</span></button>
-  <button data-action="zoomout" aria-label="Zoom out"><span class="ms">remove</span></button>
-  <button data-action="spin" aria-label="Rotate view"><span class="ms">rotate_right</span></button>
-  <button data-action="home" aria-label="Reset view"><span class="ms">home</span></button>
-</div>
-
-<aside class="card inspector" id="inspector" aria-live="polite"></aside>
-
-<section class="card tracker" aria-label="Challenge tracking">
-  <div class="steps-wrap">
-    <h2>Challenge Tracking <small id="trackSub">How your challenge moves through GCL</small></h2>
-    <ol class="steps" id="steps"></ol>
+<nav class="nav">
+  <a href="#top" class="logo"><img src="../assets/weschool-logo.png" alt="WeSchool, Welingkar Education"></a>
+  <div class="links">
+    <a href="#journey">The Flow</a>
+    <a href="#projects">Projects</a>
+    <a href="#ask">What we ask</a>
+    <a href="#partner" class="btn sm">Submit a Challenge</a>
   </div>
-  <button class="current" id="current" type="button"></button>
-</section>
+</nav>
 
-<section class="card list" aria-label="Browse">
-  <div class="tabs" role="tablist">
-    <button role="tab" data-tab="stages">Stages <i>6</i></button>
-    <button role="tab" data-tab="projects" aria-selected="true">Projects <i>5</i></button>
-    <button role="tab" data-tab="role">Your role <i>5</i></button>
-  </div>
-  <ul id="rows"></ul>
-</section>
-
-<dialog id="formDrawer" class="drawer" aria-labelledby="formTitle">
-  <header><div><small>GCL 2026-27</small><h2 id="formTitle">Submit a challenge</h2></div><button class="icon" data-close aria-label="Close"><span class="ms">close</span></button></header>
-  <p class="sub">Share a challenge statement for our Post Graduate management teams. The GCL team will review it and get in touch.</p>
-  <form id="form" novalidate>
-    <div class="grid">
-      <label>Organisation*<input name="organisation" required autocomplete="organization"></label>
-      <label>Your name*<input name="name" required autocomplete="name"></label>
-      <label>Designation<input name="designation" autocomplete="organization-title"></label>
-      <label>Work email*<input name="email" type="email" required autocomplete="email"></label>
-      <label>Phone<input name="phone" type="tel" autocomplete="tel"></label>
-      <label>Challenge type*
-        <select name="type" required>
-          <option value="">Select…</option>
-          <option>Industry challenge</option>
-          <option>Social challenge</option>
-          <option>Sustainability / SDG</option>
-          <option>Specific business issue</option>
-          <option>Survey / research work</option>
-          <option>Process needing innovative intervention</option>
-        </select>
-      </label>
+<main>
+  <!-- HERO -->
+  <section id="top" class="hero">
+    <p class="kicker">Industry Partnership · GCL 2026-27</p>
+    <h1>Global Citizen<br><span>Leaders</span> Program</h1>
+    <p class="lead">Share a real challenge from your organisation. Our Post Graduate management teams spend two trimesters turning it into a <b>researched, prototyped, commercially feasible solution</b>, mentored by WeSchool faculty and by you.</p>
+    <div class="ctas">
+      <a href="#journey" class="btn">Explore the Journey</a>
+      <a href="#partner" class="btn ghost">Submit a Challenge</a>
     </div>
-    <label>Challenge statement*<textarea name="challenge" rows="5" required minlength="30" placeholder="Describe the problem, who it affects, and what a good outcome would look like."></textarea></label>
-    <label>Supporting link (optional)<input name="link" type="url" placeholder="https:// (brief, deck, survey data)"></label>
-    <input name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hp">
-    <label class="check"><input type="checkbox" name="mentor" value="Yes"> I'd like to be an Industry Mentor for the team</label>
-    <button class="btn primary wide" type="submit">Submit challenge</button>
-    <p class="status" role="status" aria-live="polite"></p>
-  </form>
-</dialog>
+    <p class="scrollhint"><span class="ms">south</span> Scroll to travel through the flow</p>
+  </section>
 
-<dialog id="posterModal" class="poster-modal">
-  <button class="icon" data-close aria-label="Close"><span class="ms">close</span></button>
-  <img alt="">
+  <!-- ABOUT -->
+  <section class="about wrap">
+    <div class="glass">
+      <h2>Why GCL?</h2>
+      <p>Modelled on <b>"Leadership Beyond Boundaries"</b> by the USA-based <b>Center for Creative Leadership (CCL)</b> and <b>Design Impact (DI)</b>, GCL combines classroom learning with practical immersion in building a product or service for a real-life need.</p>
+      <div class="objs">
+        <div><span class="ms">psychology</span>Self &amp; socially aware, courageous collaborators</div>
+        <div><span class="ms">autorenew</span>Transform organisations while transforming themselves</div>
+        <div><span class="ms">diversity_3</span>Agile learners who empathise from many perspectives</div>
+        <div><span class="ms">public</span>A positive, collaborative mindset to change the world</div>
+        <div><span class="ms">explore</span>Solutions free from local paradigms</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- JOURNEY: sticky panel, 3D camera travels between stage nodes -->
+  <section id="journey" class="journey">
+    <div class="sticky">
+      <div class="rail" aria-hidden="true">
+        <div class="terms"><span class="t1">Trim I</span><span class="t2">Trimester II · Module I</span><span class="t3">Trimester III · Modules II &amp; III</span></div>
+        <ol class="dots"></ol>
+      </div>
+      <div class="stages"></div>
+    </div>
+  </section>
+
+  <!-- PROJECTS: CSS 3D carousel -->
+  <section id="projects" class="projects wrap">
+    <h2>Past projects with our partners</h2>
+    <p class="sub">Drag or use the arrows to rotate. Click a project to see how the team went from challenge to solution.</p>
+    <div class="stage3d">
+      <div class="ring"></div>
+    </div>
+    <div class="ringnav">
+      <button class="round" data-dir="-1" aria-label="Previous project"><span class="ms">chevron_left</span></button>
+      <button class="round" data-dir="1" aria-label="Next project"><span class="ms">chevron_right</span></button>
+    </div>
+  </section>
+
+  <!-- ASK / GAIN -->
+  <section id="ask" class="ask wrap">
+    <div class="glass">
+      <h2>What we request from you</h2>
+      <ul>
+        <li><span class="ms">flag</span>A challenge statement on an Industry, Social, Sustainability or SDG theme</li>
+        <li><span class="ms">business_center</span>A specific business-related issue</li>
+        <li><span class="ms">query_stats</span>Surveys and/or research work students can build on</li>
+        <li><span class="ms">settings_suggest</span>An existing process or situation that needs an innovative intervention</li>
+        <li><span class="ms">handshake</span>Your time as an Industry Mentor (about 4 touchpoints, online or in person)</li>
+      </ul>
+    </div>
+    <div class="glass green">
+      <h2>What your organisation gains</h2>
+      <ul>
+        <li><span class="ms">lightbulb</span>Fresh, multi-disciplinary perspectives on a live problem</li>
+        <li><span class="ms">analytics</span>Primary and secondary research insights</li>
+        <li><span class="ms">deployed_code</span>A tangible prototype and a commercially assessed solution</li>
+        <li><span class="ms">groups</span>Early access to industry-ready management talent</li>
+        <li><span class="ms">eco</span>Visible contribution to CSR, ESG and the SDGs</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- FORM -->
+  <section id="partner" class="partner wrap">
+    <div class="glass formcard">
+      <h2>Partner with us</h2>
+      <p class="sub">Share a challenge statement for GCL 2026-27. Our GCL team will review it and get in touch.</p>
+      <form id="form" novalidate>
+        <div class="grid">
+          <label>Organisation*<input name="organisation" required autocomplete="organization"></label>
+          <label>Your name*<input name="name" required autocomplete="name"></label>
+          <label>Designation<input name="designation" autocomplete="organization-title"></label>
+          <label>Work email*<input name="email" type="email" required autocomplete="email"></label>
+          <label>Phone<input name="phone" type="tel" autocomplete="tel"></label>
+          <label>Challenge type*
+            <select name="type" required>
+              <option value="">Select…</option>
+              <option>Industry challenge</option>
+              <option>Social challenge</option>
+              <option>Sustainability / SDG</option>
+              <option>Specific business issue</option>
+              <option>Survey / research work</option>
+              <option>Process needing innovative intervention</option>
+            </select>
+          </label>
+        </div>
+        <label>Challenge statement*<textarea name="challenge" rows="5" required minlength="30" placeholder="Describe the problem, who it affects, and what a good outcome would look like."></textarea></label>
+        <label>Supporting link (optional)<input name="link" type="url" placeholder="https:// (brief, deck, survey data)"></label>
+        <input name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
+        <label class="check"><input type="checkbox" name="mentor" value="Yes"> I'd like to be an Industry Mentor for the team</label>
+        <button class="btn" type="submit">Submit challenge</button>
+        <p class="status" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <img src="../assets/weschool-logo.png" alt="">
+  <p><b>S. P. Mandali's Prin. L. N. Welingkar Institute of Management Development &amp; Research (PGDM), Mumbai</b><br>
+  L. Napoo Road, Matunga (Central Railway), Matunga, Mumbai 400 019 · 022 2419 8300 · <a href="https://www.welingkar.org">welingkar.org</a></p>
+</footer>
+
+<dialog id="modal">
+  <button class="round close" aria-label="Close"><span class="ms">close</span></button>
+  <div class="mbody"></div>
 </dialog>
 
 <script type="module" src="main.js"></script>
